@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: infosys-spy
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false # toggle → you’ll paste in the Dashboard
+      - key: SONAR_API_KEY
+        sync: false
+      - key: MONGO_URI
+        sync: false
