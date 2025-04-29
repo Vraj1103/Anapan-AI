@@ -11,6 +11,8 @@ import { mergeVendors } from "./helpers/mergeVendors.js";
 import { summariseInsights } from "./helpers/summarizeInsights.js";
 import cors from "cors";
 config();
+import path from "path";
+const dist = path.resolve("spy-ui", "dist");
 
 const app = express();
 app.use(
@@ -20,6 +22,8 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+app.use(express.static(dist));
+app.get("*", (_, res) => res.sendFile(path.join(dist, "index.html")));
 app.use(express.json());
 
 app.get("/api/prompts", async (_req, res) => {
