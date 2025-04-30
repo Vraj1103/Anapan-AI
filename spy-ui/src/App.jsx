@@ -4,20 +4,52 @@ import "./App.css";
 
 export default function App() {
   const [runs, setRuns] = useState(null);
+  const [prompt, setPrompt] = useState("");
+  const [busy, setBusy] = useState(false);
 
   /* fetch all prompt documents */
   useEffect(() => {
-    fetch("http://localhost:3000/api/prompts")
+    fetch("https://infosys-spy.onrender.com/api/prompts")
       .then((r) => r.json())
       .then(setRuns)
       .catch((e) => console.error(e));
   }, []);
+
+  async function handleAnalyze(e) {
+    e.preventDefault();
+    if (!prompt.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch("https://infosys-spy.onrender.com/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const doc = await res.json();
+      setRuns((prev) => [doc, ...(prev ?? [])]);
+      setPrompt("");
+    } catch (err) {
+      alert("Analyze failed – check console");
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (!runs) return <div className="loader">Loading…</div>;
 
   return (
     <main className="page">
       <h1>Competitor Intelligence Runs</h1>
+      <form className="prompt-box" onSubmit={handleAnalyze}>
+        <input
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder='e.g. "Find Infosys competitors working with Virgin Media"'
+          disabled={busy}
+        />
+        <button disabled={busy || !prompt.trim()}>Analyze</button>
+      </form>
 
       {runs.map((doc) => (
         <details className="card" key={doc._id}>
