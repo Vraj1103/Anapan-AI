@@ -7,7 +7,7 @@ services:
     startCommand: npm start
     envVars:
       - key: OPENAI_API_KEY
-        sync: false # toggle → you’ll paste in the Dashboard
+        sync: false
       - key: SONAR_API_KEY
         sync: false
       - key: MONGO_URI
