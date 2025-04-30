@@ -30,7 +30,7 @@ const gpt = new OpenAI({ apiKey: OPENAI_KEY });
 export async function getRelatedCompanies(
   targetCompany,
   max = 30,
-  model = "sonar-pro", // "sonar" | "sonar-pro" | "sonar-deep-research"
+  model = "sonar-deep-research", // "sonar" | "sonar-pro" | "sonar-deep-research"
   prompt = ""
 ) {
   const userPrompt =

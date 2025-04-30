@@ -59,7 +59,7 @@ app.post("/api/analyze", async (req, res) => {
       externalVendors = await getRelatedCompanies(
         target_company,
         100,
-        "sonar-pro"
+        "sonar-deep-research"
         // prompt
       );
       console.log("Sonar-Pro response:", externalVendors);

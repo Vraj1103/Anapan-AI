@@ -274,7 +274,7 @@ async function querySonar(list, target) {
 
   /* 1️⃣  ── Sonar call ── */
   const resp = await sonar.chat.completions.create({
-    model: "sonar-pro",
+    model: "sonar-deep-research",
     temperature: 0,
     messages: [
       { role: "system", content: "Return factual answers only." },
