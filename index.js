@@ -27,6 +27,10 @@ app.use(
 app.get("/api/prompts", async (_req, res) => {
   try {
     const db = await connectDB();
+    if (!db) {
+      console.error("DB connection failed");
+      return res.status(500).json({ error: "DB connection failed" });
+    }
     const rows = await db
       .collection("prompts")
       .find()
@@ -39,7 +43,7 @@ app.get("/api/prompts", async (_req, res) => {
   }
 });
 
-app.post("/analyze", async (req, res) => {
+app.post("/api/analyze", async (req, res) => {
   const { prompt } = req.body;
   if (!prompt) return res.status(400).json({ error: "prompt is required" });
 
