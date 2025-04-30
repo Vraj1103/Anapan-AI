@@ -15,6 +15,7 @@ import path from "path";
 const dist = path.resolve("spy-ui", "dist");
 
 const app = express();
+app.use(express.json());
 app.use(
   cors({
     origin: "*",
@@ -22,9 +23,6 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use(express.static(dist));
-app.get("*", (_, res) => res.sendFile(path.join(dist, "index.html")));
-app.use(express.json());
 
 app.get("/api/prompts", async (_req, res) => {
   try {
@@ -119,7 +117,8 @@ app.post("/analyze", async (req, res) => {
     res.status(500).json({ error: "internal failure" });
   }
 });
-
+app.use(express.static(dist));
+app.get("*", (_, res) => res.sendFile(path.join(dist, "index.html")));
 /* --------------- boot the server --------------- */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
