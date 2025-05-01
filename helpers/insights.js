@@ -240,7 +240,7 @@ const gpt = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* ---------- public API ---------- */
 export async function fetchCompetitorInsights(opts) {
-  const companiesMaster = [
+  const companies = [
     ...new Set([
       ...(opts.direct ?? []),
       ...(opts.related ?? []).map((r) =>
@@ -249,12 +249,12 @@ export async function fetchCompetitorInsights(opts) {
     ]),
   ].slice(0, opts.maxCompanies ?? 25);
 
-  if (!companiesMaster.length) throw new Error("No companies to investigate");
+  if (!companies.length) throw new Error("No companies to investigate");
 
   const CHUNK = 6;
   const chunks = [];
-  for (let i = 0; i < companiesMaster.length; i += CHUNK)
-    chunks.push(companiesMaster.slice(i, i + CHUNK));
+  for (let i = 0; i < companies.length; i += CHUNK)
+    chunks.push(companies.slice(i, i + CHUNK));
 
   const results = await Promise.all(
     chunks.map((list) => querySonar(list, opts.target))
@@ -264,17 +264,15 @@ export async function fetchCompetitorInsights(opts) {
 }
 
 /* ---------- internal helpers ---------- */
-
 async function querySonar(list, target) {
   const prompt =
     `Confirm collaboration with **${target}** for each company in ` +
-    `${JSON.stringify(list)}.\n` +
-    `Return ONLY a JSON array like:\n` +
+    `${JSON.stringify(list)}. ` +
+    `Return ONLY a JSON array like ` +
     `[{"company_name":"...","service":"...","citations":["url"]}]`;
 
-  /* 1️⃣  ── Sonar call ── */
   const resp = await sonar.chat.completions.create({
-    model: "sonar-deep-research",
+    model: "sonar-pro",
     temperature: 0,
     messages: [
       { role: "system", content: "Return factual answers only." },
@@ -283,49 +281,57 @@ async function querySonar(list, target) {
     max_tokens: 900,
   });
 
-  const headerCitations = resp.citations ?? []; // URLs array
+  const headerCitations = resp.citations ?? [];
   const raw = resp.choices[0].message.content.trim();
 
-  /* 2️⃣  ── Parse or clean ── */
   let arr = tryParse(raw);
-  if (!arr.length) arr = await cleanWithGPT(raw);
 
-  /* guard-rail */
-  if (!Array.isArray(arr)) arr = [];
+  /* ---------- validate structure ---------- */
+  const valid =
+    Array.isArray(arr) &&
+    arr.length &&
+    arr.every(
+      (o) =>
+        typeof o.company_name === "string" &&
+        typeof o.service === "string" &&
+        Array.isArray(o.citations)
+    );
 
-  /* 3️⃣  ── Map numeric refs → URLs ── */
-  const fixed = arr.map((obj) => {
-    const mapped = (obj.citations || []).map((c) =>
+  if (!valid) arr = await cleanWithGPT(raw);
+
+  if (!Array.isArray(arr)) arr = []; // guard-rail
+
+  /* ---------- map numeric refs -> URLs ---------- */
+  const fixed = arr.map((o) => {
+    const mapped = (o.citations || []).map((c) =>
       /^\d+$/.test(c) ? headerCitations[Number(c) - 1] ?? c : c
     );
-    return { ...obj, citations: mapped };
+    return { ...o, citations: mapped };
   });
 
   return fixed.filter((o) => Array.isArray(o.citations) && o.citations.length);
 }
 
-/* ---------- helper: robust JSON parse ---------- */
 function tryParse(text) {
-  // 1. full JSON parse
+  /* full parse */
   try {
-    const o = JSON.parse(text);
-    if (Array.isArray(o)) return o; // already array
-    if (Array.isArray(o.companies)) return o.companies;
-  } catch {
-    /* ignore */
-  }
+    const obj = JSON.parse(text);
+    if (Array.isArray(obj)) return obj;
+    if (Array.isArray(obj.companies)) return obj.companies;
+  } catch {}
 
-  // 2. extract first […] or {…}
-  const bracket = text.match(/\[[\s\S]*?\]/s);
-  if (bracket) {
+  /* bracket extraction */
+  const arrMatch = text.match(/\[[\s\S]*?\]/s);
+  if (arrMatch) {
     try {
-      return JSON.parse(bracket[0]);
+      const j = JSON.parse(arrMatch[0]);
+      if (Array.isArray(j)) return j;
     } catch {}
   }
-  const brace = text.match(/\{[\s\S]*?\}/s);
-  if (brace) {
+  const objMatch = text.match(/\{[\s\S]*?\}/s);
+  if (objMatch) {
     try {
-      const o = JSON.parse(brace[0]);
+      const o = JSON.parse(objMatch[0]);
       if (Array.isArray(o.companies)) return o.companies;
     } catch {}
   }
@@ -337,7 +343,10 @@ async function cleanWithGPT(raw) {
     model: "gpt-4o-mini",
     temperature: 0,
     messages: [
-      { role: "system", content: "Format into JSON array via function." },
+      {
+        role: "system",
+        content: "Re-emit the data via the function ONLY; no commentary.",
+      },
       { role: "user", content: raw },
     ],
     functions: [
@@ -353,15 +362,16 @@ async function cleanWithGPT(raw) {
       },
     ],
     function_call: { name: "return_clean" },
+    max_tokens: 700,
   });
 
-  const jsonText =
+  const text =
     r.choices[0].message.function_call?.arguments ||
     r.choices[0].message.content ||
     "[]";
 
   try {
-    const obj = JSON.parse(jsonText);
+    const obj = JSON.parse(text);
     return Array.isArray(obj.companies) ? obj.companies : obj;
   } catch {
     return [];
